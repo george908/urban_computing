@@ -5,11 +5,39 @@
     <meta content='width=device-width, initial-scale=1' name='viewport'/>
 </head>
 <body>
-    <h1>Collect data page</h1>
-    <button id="start_button">Start Recording</button>
-    <button id="stop_button">Stop Recording</button>
-    <div id="is_running" style="width:20px; height:20px; background-color:red;"></div>
-    <p id="the_gps_values"></p>
+    <!-- the page to login to the main page through google -->
+    <div id="login_with_Google"> hidden>
+        <h1>DART Sensor Login</h1>
+        <button id="login_button">Sign in using Google</button>
+        <p id="the_login_error"></p>
+    </div>
+    <!-- the main actually collecting the dart data page -->
+    <div id="on_main_page"> hidden>
+        <!-- the actual HTML body to set up the webpage -->
+        <h1>Collect data page</h1>
+        <button id="start_button">Start Recording</button>
+        <button id="stop_button">Stop Recording</button>
+        <div id="is_running" style="width:20px; height:20px; background-color:red;"></div>
+        <p id="the_gps_values"></p>
+    </div>
+    <!-- the firebase imports -->
+    <script src="https://www.gstatic.com/firebasejs/13.1.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/13.1.0/firebase-auth-compat.js"></script>
+    <!-- the setup for firebase -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyByfgA9ojBhvFVSG87JNPYQDmIx-7yVaxw",
+            authDomain: "urban-computing-6314b.firebaseapp.com",
+            projectId: "urban-computing-6314b",
+            storageBucket: "urban-computing-6314b.firebasestorage.app",
+            messagingSenderId: "385401917960",
+            appId: "1:385401917960:web:ba91f8642ae29d0a5ff7bd",
+            measurementId: "G-E3WD68Q388"
+    };
+    firebase.initializeApp(firebaseConfig);
+    </script>
+    <script src="firebase.js"></script>
     <script src="sensor.js"></script>
 </body>
 </html>

@@ -15,5 +15,6 @@ login_button.addEventListener("click", function() {
     const google_auth = new firebase.auth.GoogleAuthProvider();
     firebase_authentication.signInWithPopup(google_auth).catch(function(error) {
         console.error(error);
+        document.getElementById("the_login_error").textContent = error.message;
     });
 });

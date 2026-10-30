@@ -10,6 +10,7 @@ function get_location(position) {
     const location = position.coords;
     the_gps_values.innerHTML = "Latitude = " + location.latitude + "<br>" + "Longitude = " + location.longitude + "<br>" + "Speed = " + location.speed + "<br>" + "Accuracy = " + location.accuracy;
     csv_data.push([position.timestamp, location.latitude, location.longitude, location.speed, location.accuracy]);
+    add_recording_values(position); // record the values into firebase
 }
 
 start_button.addEventListener("click", function() {

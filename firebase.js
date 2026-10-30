@@ -48,4 +48,17 @@ function start_recording_journey() {
     return true;
 }
 
+function add_recording_values(position) {
+    // only add values if the journey is currently running
+    if(current_journey_recording === null){
+        return;
+    }
+    // when the journey has been created properly add the values from the gps sensor
+    journey_created.then(function(){
+        return current_journey_recording.collection("recordings").add({time: position.timestamp, latitude: position.coords.latitude, longitude: position.coords.longitude, speed_mps: position.coords.speed, accuracy_m: position.coords.accuracy});
+    }).catch(function(error){
+        console.error("GPS upload failed:", error);
+    });
+}
+
 

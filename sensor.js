@@ -13,10 +13,18 @@ function get_location(position) {
 }
 
 start_button.addEventListener("click", function() {
-    is_running.style.backgroundColor = "green"; // turn it green
-    csv_data.length = 0; // turn the length of the array into 0 so that it removes the old recored array
-    // start the gps tracker and save the id 
-    gps_id = navigator.geolocation.watchPosition(get_location, null, {enableHighAccuracy: true});
+    // make sure that it isnt already recording
+    if(gps_id !== null){
+        return;
+    }
+    const journey_running_in_firebase = start_recording_journey();
+    // only actually run the journey if it is successfully running in firebase
+    if(journey_running_in_firebase === true){
+        is_running.style.backgroundColor = "green"; // turn it green
+        csv_data.length = 0; // turn the length of the array into 0 so that it removes the old recored array
+        // start the gps tracker and save the id 
+        gps_id = navigator.geolocation.watchPosition(get_location, null, {enableHighAccuracy: true});
+    }
 });
 
 // change it to red when stop button clicked and create and export the csv

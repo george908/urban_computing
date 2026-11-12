@@ -1,0 +1,15 @@
+To run the webpage to collect the data:
+1. Use my Github pages link to open the webpage: https://george908.github.io/urban_computing/ 
+2. Sign in using your Google account by clicking the sign in button and putting your information in
+3. Press the "Start Recording" button 
+4. Once you press allow webpage to use your location the readings are uploaded to Firestore cloud in real time automatically
+5. Press "Stop Recording" to stop the GPS recordings being uploaded to Firebase and to download your CSV of the recordings
+
+To run the python file to get the Irish Rail data: 
+1. Open the IrishRailAPI.py file in VS code and make sure you have python, the requests library and firebase admin library installed 
+2. In Firebase go to service accounts and generate a private key, download the JSON file and name it FirebaseUrbanComputing.json and place it in the same folder as IrishRailAPI.py
+3. In the terminal in VS Code run python IrishRailAPI.py
+4. The program will automatically get the live train information and upload it to Cloud Firestore under my User ID
+5. Press Ctrl + C to stop the data getting uploaded 
+
+I have not added my FirebaseUrbanComputing.json to the zip as it has a private key. But if you need this info or me to demonstrate it works I can do so.

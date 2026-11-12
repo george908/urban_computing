@@ -31,10 +31,11 @@ start_button.addEventListener("click", function() {
 // change it to red when stop button clicked and create and export the csv
 stop_button.addEventListener("click", function() {
     is_running.style.backgroundColor = "red"; // turn it red
-    // stop the gps tracker 
+    // stop the gps tracker and set the firebase recording to null to allow for another journey
     if (gps_id !== null) {
         navigator.geolocation.clearWatch(gps_id);
         gps_id = null;
+        current_journey_recording = null;
     }
     
     // create and export the csv

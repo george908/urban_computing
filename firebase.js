@@ -39,6 +39,13 @@ function start_recording_journey() {
         console.error("you are not logged in correctly");
         return false;
     }
+    // the train code of the train selected from the dropdown
+    const selected_train_code = train_select.value; 
+    // make sure the user selects a train before recording 
+    if (selected_train_code === "") {
+        alert("You have to select a train before you start to record");
+        return false;
+    }
     // get the user's folder
     const current_users_folder = firestore_database.collection("users").doc(current_user.uid);
     // make a new journey with a unique ID
@@ -48,7 +55,10 @@ function start_recording_journey() {
     // get there email so that it is in the users folder 
     journey_created = current_users_folder.set({email: current_user.email}, {merge: true}).then(function() {
         // get the start time of the journey to add to the top of the doc
-        return new_journey.set({started_at: firebase.firestore.FieldValue.serverTimestamp()});
+        return new_journey.set({
+            started_at: firebase.firestore.FieldValue.serverTimestamp(), 
+            train_code: selected_train_code
+        });
     });
     return true;
 }

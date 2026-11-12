@@ -33,8 +33,9 @@ while True:
         all_trains.append(train_recordings)
     
     print(all_trains)
-    # upload the info to the Firebase database 
-    DART_database.collection("users").document("o9Xixv51JJNK4Pa05Y6NGpuHmff2").collection("trainInfoFromDalkey").add({
+    # upload the info to dalkey station's database in firebase 
+    DART_database.collection("stations").document("Dalkey").collection("train_updates").add({
+        "recorded_at": firestore.SERVER_TIMESTAMP,
         "train_results": all_trains
     })
     # wait 30 seconds between each recording 

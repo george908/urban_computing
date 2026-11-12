@@ -4,11 +4,16 @@ const login_page = document.getElementById("login_with_Google");
 const main_page = document.getElementById("on_main_page");
 const login_button = document.getElementById("login_button");
 const firestore_database = firebase.firestore();
+const train_select = document.getElementById("train_select");
+
 
 // check if the user is logged in and hide the login page if they are or hide the main page if the arent
 firebase_authentication.onAuthStateChanged(function(current_user) {
     login_page.hidden = (current_user !== null);
     main_page.hidden = (current_user === null);
+    if (current_user !== null) {
+        load_list_of_trains();
+    }
 });
 
 // get the google authentication popup to login to the main page
@@ -61,6 +66,27 @@ function add_recording_values(position) {
     }).catch(function(error){
         console.error("GPS upload failed:", error);
     });
+}
+
+function load_list_of_trains(){
+    // chose the latest train update in the Dalkey database 
+    firestore_database.collection("stations").doc("Dalkey").collection("train_updates").orderBy("recorded_at", "desc").limit(1).get().then(function(results) { 
+            // only add the last train option and remove the others
+            train_select.options.length = 1;
+            const latest_set_of_train_data = results.docs[0].data(); // the last document full of the train results 
+            // loop through all of the trains and make a dropdown choice for each train 
+            for (const train of latest_set_of_train_data.train_results) { 
+                const option = document.createElement("option");
+                option.value = train.train_code; 
+                option.textContent = train.train_direction + " - arriving in " + train.due_in_minutes + " minutes";
+                train_select.appendChild(option);
+            }
+        })
+        .catch(function(error) { 
+            console.error(error);
+            train_select.options[0].textContent = "There is an error loading the train data"; 
+        });
+
 }
 
 

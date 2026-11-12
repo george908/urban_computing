@@ -36,6 +36,8 @@ stop_button.addEventListener("click", function() {
         navigator.geolocation.clearWatch(gps_id);
         gps_id = null;
         current_journey_recording = null;
+        remembered_train_code = ""; 
+        train_select.value = "";   
     }
     
     // create and export the csv

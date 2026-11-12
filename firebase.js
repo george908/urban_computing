@@ -5,7 +5,12 @@ const main_page = document.getElementById("on_main_page");
 const login_button = document.getElementById("login_button");
 const firestore_database = firebase.firestore();
 const train_select = document.getElementById("train_select");
+let remembered_train_code = ""; 
 
+// the train code that the program remembers and that the user can change
+train_select.addEventListener("change", function() {
+    remembered_train_code = train_select.value;
+});
 
 // check if the user is logged in and hide the login page if they are or hide the main page if the arent
 firebase_authentication.onAuthStateChanged(function(current_user) {
@@ -40,7 +45,7 @@ function start_recording_journey() {
         return false;
     }
     // the train code of the train selected from the dropdown
-    const selected_train_code = train_select.value; 
+    const selected_train_code = remembered_train_code;
     // make sure the user selects a train before recording 
     if (selected_train_code === "") {
         alert("You have to select a train before you start to record");
@@ -80,7 +85,7 @@ function add_recording_values(position) {
 
 function load_list_of_trains(){
     // chose the latest train update in the Dalkey database 
-    firestore_database.collection("stations").doc("Dalkey").collection("train_updates").orderBy("recorded_at", "desc").limit(1).get().then(function(results) { 
+    firestore_database.collection("stations").doc("Dalkey").collection("train_updates").orderBy("recorded_at", "desc").limit(1).onSnapshot(function(results) { 
             // only add the last train option and remove the others
             train_select.options.length = 1;
             const latest_set_of_train_data = results.docs[0].data(); // the last document full of the train results 
@@ -91,8 +96,7 @@ function load_list_of_trains(){
                 option.textContent = train.train_direction + " - arriving in " + train.due_in_minutes + " minutes";
                 train_select.appendChild(option);
             }
-        })
-        .catch(function(error) { 
+        }, function(error) {
             console.error(error);
             train_select.options[0].textContent = "There is an error loading the train data"; 
         });

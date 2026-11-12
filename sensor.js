@@ -37,6 +37,7 @@ stop_button.addEventListener("click", function() {
         gps_id = null;
         current_journey_recording = null;
         remembered_train_code = ""; 
+        remembered_service_date = "";
         train_select.value = "";   
     }
     

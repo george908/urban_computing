@@ -5,11 +5,18 @@ const main_page = document.getElementById("on_main_page");
 const login_button = document.getElementById("login_button");
 const firestore_database = firebase.firestore();
 const train_select = document.getElementById("train_select");
-let remembered_train_code = ""; 
+let remembered_train_code = "";
+let remembered_train_date = "";
 
 // the train code that the program remembers and that the user can change
 train_select.addEventListener("change", function() {
     remembered_train_code = train_select.value;
+    if (remembered_train_code === "") {
+        remembered_train_date = ""; 
+        return; 
+    }
+    const chosen_train = train_select.options[train_select.selectedIndex];
+    remembered_train_date = chosen_train.dataset.trainDate;
 });
 
 // check if the user is logged in and hide the login page if they are or hide the main page if the arent
@@ -46,6 +53,7 @@ function start_recording_journey() {
     }
     // the train code of the train selected from the dropdown
     const selected_train_code = remembered_train_code;
+    const selected_service_date = remembered_train_date;
     // make sure the user selects a train before recording 
     if (selected_train_code === "") {
         alert("You have to select a train before you start to record");
@@ -62,7 +70,8 @@ function start_recording_journey() {
         // get the start time of the journey to add to the top of the doc
         return new_journey.set({
             started_at: firebase.firestore.FieldValue.serverTimestamp(), 
-            train_code: selected_train_code
+            train_code: selected_train_code,
+            service_date: selected_service_date
         });
     });
     return true;
@@ -92,7 +101,9 @@ function load_list_of_trains(){
             // loop through all of the trains and make a dropdown choice for each train 
             for (const train of latest_set_of_train_data.train_results) { 
                 const option = document.createElement("option");
+                // keep the trains code and date together for the api to the stations that its going to stop at 
                 option.value = train.train_code; 
+                option.dataset.trainDate = train.train_date;
                 option.textContent = train.train_direction + " - arriving in " + train.due_in_minutes + " minutes";
                 train_select.appendChild(option);
             }

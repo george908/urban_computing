@@ -13,8 +13,8 @@ DART_database = firestore.client()
 
 # the url for the darts coming into Dalkey
 dartsForDalkey = "https://api.irishrail.ie/realtime/realtime.asmx/getStationDataByNameXML?StationDesc=Dalkey"
-# run the program until I stop it in VS code 
-while True:
+
+def dalkey_train_update():
     # get the current info on the website
     resultsForDalkey = requests.get(dartsForDalkey)
     # convert the text to text that is parsable by python 
@@ -28,7 +28,8 @@ while True:
             "train_direction": current_train.findtext("{*}Direction"),
             "due_in_minutes": current_train.findtext("{*}Duein"),
             "minutes_late": current_train.findtext("{*}Late"),
-            "time_of_recording": current_train.findtext("{*}Servertime")
+            "time_of_recording": current_train.findtext("{*}Servertime"),
+            "train_date": current_train.findtext("{*}Traindate")
         }
         all_trains.append(train_recordings)
     
@@ -38,6 +39,9 @@ while True:
         "recorded_at": firestore.SERVER_TIMESTAMP,
         "train_results": all_trains
     })
-    # wait 30 seconds between each recording 
-    time.sleep(30)
+
+if __name__ == "__main__":
+    while True:
+        dalkey_train_update()  # get the dalkey trains data
+        time.sleep(30) # wait 30 seconds before getting the train data again 
 

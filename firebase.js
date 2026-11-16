@@ -102,7 +102,7 @@ function load_list_of_trains(){
             for (const train of latest_set_of_train_data.train_results) { 
                 const option = document.createElement("option");
                 // keep the trains code and date together for the api to the stations that its going to stop at 
-                option.value = train.train_code; 
+                option.value = train.train_code.trim(); 
                 option.dataset.trainDate = train.train_date;
                 option.textContent = train.train_direction + " - arriving in " + train.due_in_minutes + " minutes";
                 train_select.appendChild(option);

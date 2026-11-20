@@ -6,7 +6,6 @@ from firebase_admin import firestore
 from firebase_functions import https_fn
 
 firebase_admin.initialize_app()
-DART_database = firestore.client()
 
 # the url for the darts coming into Dalkey
 dartsForDalkey = "https://api.irishrail.ie/realtime/realtime.asmx/getStationDataByNameXML?StationDesc=Dalkey"
@@ -21,6 +20,7 @@ def dalkey_train_update(request: https_fn.CallableRequest):
             code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
             message="You have to sign in before getting the train data"
         )
+    DART_database = firestore.client()
     # fetch the train data at Dalkey with a timeout to stop stalls
     resultsForDalkey = requests.get(dartsForDalkey, timeout=15)
     # stop if the API returns an error

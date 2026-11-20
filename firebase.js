@@ -21,10 +21,15 @@ train_select.addEventListener("change", function() {
 
 // check if the user is logged in and hide the login page if they are or hide the main page if the arent
 firebase_authentication.onAuthStateChanged(function(current_user) {
+    // show the correct page depending on if the user is signed in or not 
     login_page.hidden = (current_user !== null);
     main_page.hidden = (current_user === null);
     if (current_user !== null) {
         load_list_of_trains();
+        // call the firebase python function to get the live train data
+        firebase.functions().httpsCallable("dalkey_train_update")().catch(function(error) {
+            console.error("Error when loading the train data:", error);
+        });
     }
 });
 
@@ -97,6 +102,10 @@ function load_list_of_trains(){
     firestore_database.collection("stations").doc("Dalkey").collection("train_updates").orderBy("recorded_at", "desc").limit(1).onSnapshot(function(results) { 
             // only add the last train option and remove the others
             train_select.options.length = 1;
+            // if there are no train updates yet wait for the database to update
+            if (results.empty) {
+                return;
+            }
             const latest_set_of_train_data = results.docs[0].data(); // the last document full of the train results 
             // loop through all of the trains and make a dropdown choice for each train 
             for (const train of latest_set_of_train_data.train_results) { 

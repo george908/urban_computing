@@ -2,8 +2,10 @@
 import requests
 import xml.etree.ElementTree as ET
 import firebase_admin
+import math
 from firebase_admin import firestore
 from firebase_functions import https_fn, firestore_fn
+
 
 firebase_admin.initialize_app()
 
@@ -107,5 +109,36 @@ def save_journey_timetable(current_journey):
             "timetable_status": "error",
             "timetable_potential_error": str(error)
         })
+
+
+def get_station_coordinates():
+    # get the train timetable for the correct train using the code and at that service time 
+    station_values = requests.get("https://api.irishrail.ie/realtime/realtime.asmx/getAllStationsXML", timeout = 30)
+    # stop if the API returns an error
+    station_values.raise_for_status()
+    # convert the text to text that is parsable by python 
+    pythonText = ET.fromstring(station_values.text)
+
+    station_coordinates = {}
+
+    # loop through every station to get it's values
+    for station in pythonText.findall("{*}objStation"):
+        # get the station code so that the coordinates can be called from it 
+        station_name = station.findtext("{*}StationDesc").strip()
+        # let the station name function call equal the latitude and longitude 
+        station_coordinates[station_name] = {
+            "latitude": float(station.findtext("{*}StationLatitude")),
+            "longitude": float(station.findtext("{*}StationLongitude"))
+        }
+    return station_coordinates
+
+def distance_from_location_to_station(gps_latitude, gps_longitude, station_latitude, station_longitude):
+    # there is about 111,293 meters in a degree of latitude in dublin
+    vertical_meters = (gps_latitude - station_latitude) * 111293
+    # there is about 66,593 meters in a degree of longitude in dublin
+    horizontal_meters = (gps_longitude - station_longitude) * 66593
+    # pythogrous theorm for the shortest length between 2 lines
+    distance = math.sqrt((vertical_meters ** 2) + (horizontal_meters ** 2))
+    return distance
 
 

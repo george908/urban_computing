@@ -141,4 +141,41 @@ def distance_from_location_to_station(gps_latitude, gps_longitude, station_latit
     distance = math.sqrt((vertical_meters ** 2) + (horizontal_meters ** 2))
     return distance
 
+def estimate_station_arrival_time(recordings, station_latitude, station_longitude):
+    # sort the recordings on the time element 
+    recordings = sorted(recordings, key=lambda recording: recording["time"])
+
+    arrival_time = None
+    previous_time = None
+    for recording in recordings:
+        recording_time = recording["time"]
+        # if the readings are more than 3 seconds apart dont take this gap in readings as a stop
+        if (previous_time is not None) and ((recording_time - previous_time) > 3000):
+            arrival_time = None
+        previous_time = recording_time
+
+        recording_accuracy = recording.get("accuracy_m")
+        recording_speed = recording.get("speed_mps")
+        # if the accuracy or the speed is missing or if the accuracy is not good enough restart the check
+        if ((recording_accuracy is None) or (recording_accuracy > 50) or (recording_speed is None)):
+            arrival_time = None
+            continue
+
+        # get the distance of the recording from the station
+        distance_from_station = distance_from_location_to_station(recording["latitude"], recording["longitude"], station_latitude, station_longitude)
+
+        # if the reading is within 200 meters of the station and the train is moving below 1 meter per second
+        if (distance_from_station <= 200) and (0 <= recording_speed <= 1):
+            # the possible start time of the stop
+            if arrival_time is None:
+                arrival_time = recording_time
+
+            # if the stop happens for more than 5 seconds return the recorded start time of the stop 
+            if recording_time - arrival_time >= 5000:
+                return arrival_time
+
+        else:
+            arrival_time = None
+    return None
+
 

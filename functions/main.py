@@ -5,6 +5,7 @@ import firebase_admin
 import math
 from firebase_admin import firestore
 from firebase_functions import https_fn, firestore_fn
+from datetime import datetime, timezone
 
 
 firebase_admin.initialize_app()
@@ -177,5 +178,134 @@ def estimate_station_arrival_time(recordings, station_latitude, station_longitud
         else:
             arrival_time = None
     return None
+
+
+# allow the webpage to call the data from firebase for analysis
+@https_fn.on_call(invoker="public")
+def analyse_journey(request: https_fn.CallableRequest):
+    if request.auth is None:
+        # stop the function and throw the error if there are no login details
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+            message="You have to sign in before getting the train data"
+        )
+    # read in the ID of the train journey
+    request_values = request.data
+    # stop if the journey ID is not sent in the right format
+    if not isinstance(request_values, dict):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
+            message="The journey ID is not valid for analysis"
+        )
+    journey_id = request_values.get("journey_id")
+    DART_database = firestore.client()
+    # get the correct journey from the right user and using the right ID
+    journey_document = (DART_database.collection("users").document(request.auth.uid).collection("journeys").document(journey_id))
+    # read in the correct journeys data
+    journey = journey_document.get().to_dict()
+    # throw an error if there is no data in the journey
+    if journey is None:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.NOT_FOUND,
+            message="There is no data found that corresponds to this journey"
+        )
+
+    # throw an error if the timetable did not save properly in the firestore database 
+    if journey.get("timetable_status") != "ready":
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="The dart timetable corresponding to this journey did not save properly"
+        )
+
+    # loop through the individual documents of recordings in the journey and add it as append then in dictionary form to the gps_recording array
+    gps_recordings = []
+    for recording_document in journey_document.collection("recordings").stream():
+        gps_recordings.append(recording_document.to_dict())
+    
+    # throw an error if none of the gps recordings were recorded
+    if (len(gps_recordings) == 0):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="The GPS recordings have not been saved for this journey"
+        )
+
+    timetable = journey["timetable"]
+
+    dalkey_position_in_timetable = None
+    pearse_position_in_timetable = None
+    # get the ordered postion in the timetable for both dalkey and pearse station
+    for station in timetable:
+        if station["station_code"].strip() == "DLKEY":
+            dalkey_position_in_timetable = station["station_order"]
+        if station["station_code"].strip() == "PERSE":
+            pearse_position_in_timetable = station["station_order"]
+
+    # throw an error if the table is not showing correctly and going northbound from Dalkey to Pearse
+    if ((dalkey_position_in_timetable is None) or (pearse_position_in_timetable is None) or (dalkey_position_in_timetable >= pearse_position_in_timetable)):
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            message="this timetable is not correct and is not a journey running from dalkey to pearse"
+        )
+
+    station_coordinates = get_station_coordinates()
+    irish_timezone = timezone.utc
+    final_results = []
+
+    for station in timetable:
+        # only take into account stations between dalkey and pearse
+        if not dalkey_position_in_timetable <= station["station_order"] <= pearse_position_in_timetable:
+            continue
+        # dont take into account any timing checkpoints that are not railway stations
+        if station["station_type"] == "T":
+            continue
+
+        station_name = station["station_name"].strip()
+        # fill in all of the fields we already can 
+        result = {
+            "station_name": station_name,
+            "scheduled_arrival": station["scheduled_arrival"],
+            "estimated_arrival": None,
+            "delay_minutes": None,
+            "status": "not_detected"
+        }
+        
+        # get the coordinates of the station using its name
+        coordinates = station_coordinates.get(station_name)
+
+        if coordinates is None:
+            result["status"] = "the_station_coordinates_are_missing"
+
+        else:
+            arrival_time = estimate_station_arrival_time(gps_recordings, coordinates["latitude"], coordinates["longitude"])
+
+            if arrival_time is not None:
+                # converts the arrival time into seconds and then into the irish date and time 
+                arrival_datetime = datetime.fromtimestamp((arrival_time/1000), tz=irish_timezone)
+                # load in the estimated arrival time formatted and then set the status of the arrival to detected 
+                result["estimated_arrival"] = arrival_datetime.strftime("%H:%M:%S")
+                result["status"] = "detected"
+
+                scheduled_time = station["scheduled_arrival"]
+                # get the delay when there is a real and useul scheduleed time 
+                if scheduled_time and scheduled_time != "00:00:00":
+                    # combine the date and the time to get the fully formatted irish date time
+                    scheduled_datetime = datetime.strptime(journey["service_date"].strip() + " " + scheduled_time, "%d %b %Y %H:%M:%S").replace(tzinfo=irish_timezone)
+
+                    # get the delay in seconds of the dart where if this value is positive that means its late and if it is negative that means that it is early
+                    delay_in_seconds = arrival_datetime.timestamp() - scheduled_datetime.timestamp()
+                    # the delay in minutes of the dart to a decimal place
+                    result["delay_minutes"] = round(delay_in_seconds / 60, 1)
+
+        final_results.append(result)
+
+    # save the analysis in the journey's fields 
+    journey_document.update({
+        "analysis_results": final_results,
+        "analysis_status": "is_analyzed",
+        "analysed_at": firestore.SERVER_TIMESTAMP
+    })
+
+    # return the results for the webpage
+    return {"results": final_results}
 
 

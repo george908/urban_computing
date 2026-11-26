@@ -23,6 +23,31 @@
         <button id="stop_button">Stop Recording</button>
         <div id="is_running" style="width:20px; height:20px; background-color:red;"></div>
         <p id="the_gps_values"></p>
+        <!-- analysis of the readings part of the webpage  -->
+        <h2>Analyse a saved journey</h2>
+        <!-- asks the user to select a journey using a dropdown  -->
+        <label for="journey_select">Choose a journey:</label>
+        <select id="journey_select">
+            <option value="">Choose a saved journey</option>
+        </select>
+        <!-- gets the last saved journey from firebase and calls the analysis cloud python function -->
+        <button id="refresh_journeys_button" type="button">Refresh journeys</button>
+        <button id="analyse_button" type="button">Analyse Journey</button>
+        <!-- message to show the user the status of the analysis -->
+        <p id="analysis_message"></p>
+        
+        <table id="analysis_table" hidden>
+            <thead>
+                <tr>
+                    <th>Station</th>
+                    <th>Scheduled arrival</th>
+                    <th>GPS estimated arrival</th>
+                    <th>Arrival status</th>
+                </tr>
+            </thead>
+            <tbody id="analysis_results_body"></tbody>
+        </table>
+
     </div>
     <!-- the firebase imports -->
     <script src="https://www.gstatic.com/firebasejs/13.1.0/firebase-app-compat.js"></script>

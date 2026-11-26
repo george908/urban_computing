@@ -7,6 +7,13 @@ const firestore_database = firebase.firestore();
 const train_select = document.getElementById("train_select");
 let remembered_train_code = "";
 let remembered_train_date = "";
+// HTML parts for analysing a journey
+const journey_select = document.getElementById("journey_select");
+const refresh_journeys_button = document.getElementById("refresh_journeys_button");
+const analyse_button = document.getElementById("analyse_button");
+const analysis_message = document.getElementById("analysis_message");
+const analysis_table = document.getElementById("analysis_table");
+const analysis_results_body = document.getElementById("analysis_results_body");
 
 // the train code that the program remembers and that the user can change
 train_select.addEventListener("change", function() {
@@ -26,6 +33,7 @@ firebase_authentication.onAuthStateChanged(function(current_user) {
     main_page.hidden = (current_user === null);
     if (current_user !== null) {
         load_list_of_trains();
+        load_saved_journeys();
         // call the firebase python function to get the live train data
         firebase.functions().httpsCallable("dalkey_train_update")().catch(function(error) {
             console.error("Error when loading the train data:", error);
@@ -123,4 +131,151 @@ function load_list_of_trains(){
 
 }
 
+function load_saved_journeys() {
+    // get the current users info 
+    const current_user = firebase_authentication.currentUser;
+    if (current_user === null) {
+        return;
+    }
 
+    // get rid of the previous options but keep the placeholder
+    journey_select.options.length = 1;
+    analysis_table.hidden = true;
+    // show the user that the journeys are being loaded 
+    analysis_message.textContent = "Loading your journeys...";
+
+    // get all of the user's journeys starting with there most latest journey
+    firestore_database.collection("users").doc(current_user.uid).collection("journeys").orderBy("started_at", "desc").get().then(function(results) {
+            // make a dropdown option for every saved journey in the users history
+            for (const journey_document of results.docs) {
+                const journey = journey_document.data();
+                const option = document.createElement("option");
+
+                // unique journey ID
+                option.value = journey_document.id;
+                // convert the timestamp in to the correct format 
+                let start_time = "";
+                if (journey.started_at) {
+                    start_time = journey.started_at.toDate().toLocaleTimeString("en-IE");
+                }
+                // show the user the date, time and trian code so they can identify the correct journey
+                option.textContent = journey.service_date + " — " + start_time + " — " + journey.train_code;
+                // add it to the dropdown meny
+                journey_select.appendChild(option);
+            }
+
+            if (results.empty) {
+                analysis_message.textContent = "You have no saved journeys yet";
+            } 
+            else {
+                analysis_message.textContent = "Choose a journey to analyse";
+            }
+        })
+        .catch(function(error) {
+            console.error("Could not load any saved journeys:", error);
+            analysis_message.textContent = "There is an error in loading saved journeys";
+        });
+}
+
+// when the user clicks on the refresh journeys button than refresh the journeys
+refresh_journeys_button.addEventListener("click", load_saved_journeys);
+
+// when a user clicks on a new journey hide the results of the previous journey
+journey_select.addEventListener("change", function() {
+    analysis_table.hidden = true;
+    analysis_message.textContent = "";
+});
+
+// this function gets the results from the python cloud function and turns it into a 
+// displayable HTML table
+function display_analysis_results(results) {
+    // get rid of the results from previous analysis 
+    analysis_results_body.replaceChildren();
+    // make a row in the table for every station 
+    for (const result of results) {
+        // make the row in HTML 
+        const row = document.createElement("tr");
+        // set the default values for variables
+        let estimated_arrival = "Not detected";
+        let arrival_status = "Not known";
+
+        if (result.estimated_arrival) {
+            estimated_arrival = result.estimated_arrival;
+        }
+
+        // change the delay in minutes into a readable message for the user
+        if (typeof result.delay_minutes === "number") {
+            if (result.delay_minutes > 0) {
+                arrival_status = result.delay_minutes.toFixed(1) + " min late";
+            } else if (result.delay_minutes < 0) {
+                arrival_status = Math.abs(result.delay_minutes).toFixed(1) + " min early";
+            } else {
+                arrival_status = "On time";
+            }
+        }
+
+        // the values that will be displayed in a row 
+        const values = [result.station_name, result.scheduled_arrival, estimated_arrival, arrival_status];
+
+        // create the four cells within each row 
+        for (const value of values) {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            row.appendChild(cell);
+        }
+        // add the row onto the table 
+        analysis_results_body.appendChild(row);
+    }
+    // make the table visible 
+    analysis_table.hidden = false;
+}
+
+
+// when the user calls the analyse button 
+analyse_button.addEventListener("click", async function() {
+    // get the unique ID of the journey that is selected 
+    const journey_id = journey_select.value;
+    // throw the error and return if the user has not selected a journey
+    if (journey_id === "") {
+        analysis_message.textContent = "choose a journey before analysis";
+        return;
+    }
+
+    // throw the error and return if the user is currently recording a journey
+    if (current_journey_recording !== null) {
+        analysis_message.textContent = "stop recording before analysing a journey";
+        return;
+    }
+
+    // while the analysis is running disable the other buttons
+    start_button.disabled = true;
+    stop_button.disabled = true;
+    train_select.disabled = true;
+    analyse_button.disabled = true;
+    journey_select.disabled = true;
+    refresh_journeys_button.disabled = true;
+    // hide the previous results and tell the user that the results are underway
+    analysis_table.hidden = true;
+    analysis_message.textContent = "Analysing your journey...";
+
+    try {
+        // call the python cloud function using the unique ID 
+        const response = await firebase.functions().httpsCallable("analyse_journey")({journey_id: journey_id});
+        // show the results that the function returns
+        display_analysis_results(response.data.results);
+        analysis_message.textContent = "Analysis now complete";
+    
+    } catch (error) {
+        console.error("Analysis failed:", error);
+        analysis_message.textContent = "There was an error analysing your journey";
+    
+    } finally {
+        // stop the buttons from being disabled after the analysis 
+        start_button.disabled = false;
+        stop_button.disabled = false;
+        train_select.disabled = false;
+        analyse_button.disabled = false;
+        journey_select.disabled = false;
+        refresh_journeys_button.disabled = false;
+    }
+});

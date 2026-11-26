@@ -14,6 +14,9 @@ const analyse_button = document.getElementById("analyse_button");
 const analysis_message = document.getElementById("analysis_message");
 const analysis_table = document.getElementById("analysis_table");
 const analysis_results_body = document.getElementById("analysis_results_body");
+const delay_chart_section = document.getElementById("delay_chart_section");
+const delay_chart_area = document.getElementById("delay_chart_area");
+let delay_chart = null;
 
 // the train code that the program remembers and that the user can change
 train_select.addEventListener("change", function() {
@@ -141,6 +144,7 @@ function load_saved_journeys() {
     // get rid of the previous options but keep the placeholder
     journey_select.options.length = 1;
     analysis_table.hidden = true;
+    delay_chart_section.hidden = true;
     // show the user that the journeys are being loaded 
     analysis_message.textContent = "Loading your journeys...";
 
@@ -183,6 +187,7 @@ refresh_journeys_button.addEventListener("click", load_saved_journeys);
 // when a user clicks on a new journey hide the results of the previous journey
 journey_select.addEventListener("change", function() {
     analysis_table.hidden = true;
+    delay_chart_section.hidden = true;
     analysis_message.textContent = "";
 });
 
@@ -256,6 +261,7 @@ analyse_button.addEventListener("click", async function() {
     refresh_journeys_button.disabled = true;
     // hide the previous results and tell the user that the results are underway
     analysis_table.hidden = true;
+    delay_chart_section.hidden = true;
     analysis_message.textContent = "Analysing your journey...";
 
     try {
@@ -263,6 +269,7 @@ analyse_button.addEventListener("click", async function() {
         const response = await firebase.functions().httpsCallable("analyse_journey")({journey_id: journey_id});
         // show the results that the function returns
         display_analysis_results(response.data.results);
+        display_delay_chart(response.data.results);
         analysis_message.textContent = "Analysis now complete";
     
     } catch (error) {
@@ -278,4 +285,71 @@ analyse_button.addEventListener("click", async function() {
         journey_select.disabled = false;
         refresh_journeys_button.disabled = false;
     }
-});
+}); 
+
+function display_delay_chart(results) {
+    // all of the values to plot 
+    const station_names = [];
+    const station_delays = [];
+    const point_colours = [];
+
+    // loop through the results of the analysis 
+    for (const result of results) {
+        // add the stations name
+        station_names.push(result.station_name);
+        // check if a delay in minutes was calculated correctly 
+        if (typeof result.delay_minutes === "number") {
+            // add the station delays
+            station_delays.push(result.delay_minutes);
+            // make the colour of the graphs points green if it's in the positive and red if it's in the negative 
+            if (result.delay_minutes > 0) {
+                point_colours.push("green");
+            } else if (result.delay_minutes < 0) {
+                point_colours.push("red");
+            } else {
+                point_colours.push("grey");
+            }
+        } 
+        else {
+            // make the value nothing if there was no delay in minutes
+            station_delays.push(null);
+            point_colours.push("grey");
+        }
+    }
+
+    // get rid of the previous graph if it exists
+    if (delay_chart !== null) {
+        delay_chart.destroy();
+    }
+    // display the graph 
+    delay_chart_section.hidden = false;
+    // draw the line graph
+    delay_chart = new Chart(delay_chart_area, {
+        type: "line",
+        data: {
+            labels: station_names,
+            datasets: [{
+                label: "Delay in minutes",
+                data: station_delays,
+                pointBackgroundColor: point_colours
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: "Station"
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: "Delay in minutes"
+                    }
+                }
+            }
+        }
+    });
+}

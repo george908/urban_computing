@@ -3,6 +3,38 @@
 <head>
     <title>DART sensor</title>
     <meta content='width=device-width, initial-scale=1' name='viewport'/>
+
+    <style>
+        /* show the table and graph side by side */
+        #analysis_layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        /* allow scrolling incase it goes off the screen */
+        #analysis_table_section {
+            overflow-x: auto;
+        }
+
+        /* the siz of the graph */
+        #delay_chart_section {
+            position: relative;
+            min-width: 0;
+            height: 450px;
+        }
+
+        /* change the table and graph to be ontop of eachother for smaller screens and change their size */
+        @media (max-width: 900px) {
+            #analysis_layout {
+                grid-template-columns: 1fr;
+            }
+        
+            #delay_chart_section {
+                height: 350px;
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- the page to login to the main page through google -->
@@ -36,17 +68,29 @@
         <!-- message to show the user the status of the analysis -->
         <p id="analysis_message"></p>
         
-        <table id="analysis_table" hidden>
-            <thead>
-                <tr>
-                    <th>Station</th>
-                    <th>Scheduled arrival</th>
-                    <th>GPS estimated arrival</th>
-                    <th>Arrival status</th>
-                </tr>
-            </thead>
-            <tbody id="analysis_results_body"></tbody>
-        </table>
+        <!-- class for the analysis table and graph -->
+        <div id="analysis_layout">  
+            <!-- table part -->
+            <div id="analysis_table_section">
+                <table id="analysis_table" hidden>
+                    <thead>
+                        <tr>
+                            <th>Station</th>
+                            <th>Scheduled arrival</th>
+                            <th>GPS estimated arrival</th>
+                            <th>Arrival status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="analysis_results_body"></tbody>
+                </table>
+            </div>
+        
+            <!-- graph part -->
+            <div id="delay_chart_section" hidden>
+                <canvas id="delay_chart_area"></canvas>
+            </div>
+        
+        </div>
 
     </div>
     <!-- the firebase imports -->
@@ -67,6 +111,10 @@
     };
     firebase.initializeApp(firebaseConfig);
     </script>
+
+    <!-- import the graphs library for javascript -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <script src="firebase.js"></script>
     <script src="sensor.js"></script>
 </body>

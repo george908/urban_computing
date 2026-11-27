@@ -302,7 +302,7 @@ function display_delay_chart(results) {
         // check if a delay in minutes was calculated correctly 
         if (typeof result.delay_minutes === "number") {
             // add the station delays
-            station_delays.push(result.delay_minutes);
+            station_delays.push(-result.delay_minutes);
             // find the largest delay to set the y axis limit 
             y_axis_limit = Math.max(y_axis_limit, Math.ceil(Math.abs(result.delay_minutes)));
             // make the colour of the graphs points green if it's in the positive and red if it's in the negative 

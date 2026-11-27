@@ -307,9 +307,9 @@ function display_delay_chart(results) {
             y_axis_limit = Math.max(y_axis_limit, Math.ceil(Math.abs(result.delay_minutes)));
             // make the colour of the graphs points green if it's in the positive and red if it's in the negative 
             if (result.delay_minutes > 0) {
-                point_colours.push("green");
-            } else if (result.delay_minutes < 0) {
                 point_colours.push("red");
+            } else if (result.delay_minutes < 0) {
+                point_colours.push("green");
             } else {
                 point_colours.push("grey");
             }
@@ -335,7 +335,8 @@ function display_delay_chart(results) {
             datasets: [{
                 label: "Delay in minutes",
                 data: station_delays,
-                pointBackgroundColor: point_colours
+                pointBackgroundColor: point_colours,
+                borderColor: get_graph_line_colour
             }]
         },
         options: {
@@ -352,10 +353,31 @@ function display_delay_chart(results) {
                     max: y_axis_limit,
                     title: {
                         display: true,
-                        text: "Delay in minutes"
+                        text: "Minutes ahead of schedule"
                     }
                 }
             }
         }
     });
+}
+
+// make the good results green and the bad red 
+function get_graph_line_colour(context) {
+    // get the current delay chart
+    const current_chart = context.chart;
+    // get the area where the data is plotted
+    const graph_area = current_chart.chartArea;
+    // check if the graph area has been created
+    if (!graph_area) {
+        return "green";
+    }
+    // create a colour gradient from the top to the bottom of the graph split by the 0 middle of no delays
+    const gradient = current_chart.ctx.createLinearGradient(0, graph_area.top, 0, graph_area.bottom);
+    // create a none blended gradient
+    gradient.addColorStop(0, "green");
+    gradient.addColorStop(0.5, "green");
+    gradient.addColorStop(0.5, "red");
+    gradient.addColorStop(1, "red");
+
+    return gradient;
 }

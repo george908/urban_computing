@@ -292,6 +292,8 @@ function display_delay_chart(results) {
     const station_names = [];
     const station_delays = [];
     const point_colours = [];
+    // the max value for the y axis
+    let y_axis_limit = 1;
 
     // loop through the results of the analysis 
     for (const result of results) {
@@ -301,6 +303,8 @@ function display_delay_chart(results) {
         if (typeof result.delay_minutes === "number") {
             // add the station delays
             station_delays.push(result.delay_minutes);
+            // find the largest delay to set the y axis limit 
+            y_axis_limit = Math.max(y_axis_limit, Math.ceil(Math.abs(result.delay_minutes)));
             // make the colour of the graphs points green if it's in the positive and red if it's in the negative 
             if (result.delay_minutes > 0) {
                 point_colours.push("green");
@@ -344,6 +348,8 @@ function display_delay_chart(results) {
                     }
                 },
                 y: {
+                    min: -y_axis_limit,
+                    max: y_axis_limit,
                     title: {
                         display: true,
                         text: "Delay in minutes"

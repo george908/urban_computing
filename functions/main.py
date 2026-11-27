@@ -343,6 +343,8 @@ def analyse_dart_reliability(request: https_fn.CallableRequest):
         train_code = journey_data.get("train_code")
         service_date = journey_data.get("service_date")
         station_results = journey_data.get("analysis_results")
+        timetable = journey_data.get("timetable")
+        timetable_saved_at = journey_data.get("timetable_saved_at")
  
         # only include journeys that have been analysed 
         if station_results is None:
@@ -352,7 +354,9 @@ def analyse_dart_reliability(request: https_fn.CallableRequest):
         results_of_journeys.append({
             "train_code": train_code,
             "service_date": service_date,
-            "station_results": station_results
+            "station_results": station_results,
+            "timetable": timetable,
+            "timetable_saved_at": timetable_saved_at
         })
 
     # store all of the detected station delays
@@ -452,6 +456,83 @@ def analyse_dart_reliability(request: https_fn.CallableRequest):
     # sort the sections going from the sections that cause the most delay down to the least amount of delay 
     bottleneck_results.sort(key=lambda section: section["average_additional_delay"], reverse=True)
 
+    # to compare the difference between the scheduled arrival time and the live updated expected arrival time 
+    scheduled_arrival_errors = []
+    expected_arrival_errors = []
+    irish_timezone = timezone.utc
+
+    for journey in results_of_journeys:
+        timetable = journey["timetable"]
+        timetable_saved_at = journey["timetable_saved_at"]
+        service_date = journey["service_date"]
+        
+        timetable_by_station = {}
+        # loop through the stations and add their timetables to them 
+        for station in timetable:
+            timetable_by_station[station["station_name"].strip()] = station
+
+        # loop through the staion results for the journeys
+        for station in journey["station_results"]:
+            station_name = station["station_name"]
+            estimated_arrival = station["estimated_arrival"]
+            scheduled_arrival = station["scheduled_arrival"]
+
+            # only use stations where a detected arrival happened
+            if station["delay_minutes"] is None:
+                continue
+
+            # get the expected arrival time from the timetable 
+            expected_arrival = timetable_by_station[station_name]["expected_arrival"]
+            # if there is no valid expected arrival time skip that station
+            if not expected_arrival or expected_arrival == "00:00:00":
+                continue
+
+            # turn the gps readings into a formatted date and time 
+            estimated_datetime = datetime.strptime(service_date.strip() + " " + estimated_arrival, "%d %b %Y %H:%M:%S").replace(tzinfo=irish_timezone)
+            
+            # only compare expected arrival times that were saved before the train actually arrived at the station
+            if timetable_saved_at is None or timetable_saved_at >= estimated_datetime:
+                continue
+
+            # convert the scheduled and expected arrivals into a formatted date and time for subtraction
+            scheduled_datetime = datetime.strptime(service_date.strip() + " " + scheduled_arrival, "%d %b %Y %H:%M:%S").replace(tzinfo=irish_timezone)
+            expected_datetime = datetime.strptime(service_date.strip() + " " + expected_arrival, "%d %b %Y %H:%M:%S").replace(tzinfo=irish_timezone)
+
+            # find how many minutes the scheduled arrival was off the GPS estimated arrival
+            scheduled_error = abs((estimated_datetime - scheduled_datetime).total_seconds() / 60)
+            # find how many minutes the expected arrival was off the GPS estimated arrival
+            expected_error = abs((estimated_datetime - expected_datetime).total_seconds() / 60)
+            # add both of the errors to their lists
+            scheduled_arrival_errors.append(scheduled_error)
+            expected_arrival_errors.append(expected_error)
+
+
+    number_of_predictions = len(expected_arrival_errors)
+
+    average_scheduled_error = None
+    average_expected_error = None
+    prediction_improvement = None
+
+    if number_of_predictions > 0:
+        # get the average error in minutes of the original timetable
+        average_scheduled_error = sum(scheduled_arrival_errors) / number_of_predictions
+        # get the average error in minutes of the updated timetable by irish rail
+        average_expected_error = sum(expected_arrival_errors) / number_of_predictions
+        # find the improvement in the prediction between the scheduled timetable and the live updated timetable 
+        if average_scheduled_error > 0:
+            prediction_improvement = round(((average_scheduled_error - average_expected_error) / average_scheduled_error) * 100, 2)
+
+        average_scheduled_error = round(average_scheduled_error, 2)
+        average_expected_error = round(average_expected_error, 2)
+
+    # the results of the average errors between the scheduled timetable for the day and the updated timetable 
+    prediction_results = {
+        "number_of_predictions": number_of_predictions,
+        "average_scheduled_error": average_scheduled_error,
+        "average_expected_error": average_expected_error,
+        "prediction_improvement_percentage": prediction_improvement
+    }
+
     return {
         "journeys_found": len(valid_journeys),
         "total_arrivals": total_arrivals,
@@ -459,7 +540,8 @@ def analyse_dart_reliability(request: https_fn.CallableRequest):
         "maximum_delay": maximum_delay,
         "on_time_percentage": on_time_percentage,
         "station_recommendations": station_recommendations,
-        "bottleneck_results": bottleneck_results
+        "bottleneck_results": bottleneck_results,
+        "prediction_results": prediction_results
     }
 
 

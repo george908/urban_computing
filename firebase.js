@@ -87,7 +87,8 @@ function start_recording_journey() {
         return new_journey.set({
             started_at: firebase.firestore.FieldValue.serverTimestamp(), 
             train_code: selected_train_code,
-            service_date: selected_service_date
+            service_date: selected_service_date,
+            include_in_reliability_analysis: true
         });
     });
     return true;

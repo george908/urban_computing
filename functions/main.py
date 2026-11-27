@@ -309,3 +309,157 @@ def analyse_journey(request: https_fn.CallableRequest):
     return {"results": final_results}
 
 
+# analyse valid historical journeys across all users 
+@https_fn.on_call()
+def analyse_dart_reliability(request: https_fn.CallableRequest):
+    # make sure the user is logged in
+    if request.auth is None:
+        raise https_fn.HttpsError(
+            code=https_fn.FunctionsErrorCode.UNAUTHENTICATED,
+            message="You have to sign in before the analysis"
+        )
+    DART_database = firestore.client()
+    # an array of all of the possible journeys there are that are valid
+    valid_journeys = []
+    # get every single user in the database
+    all_users = DART_database.collection("users").stream()
+
+    for user in all_users:
+        # get all of the journeys for the user
+        journeys = user.reference.collection("journeys").stream()
+
+        for journey in journeys:
+            # put all of the inforamtion in the journey into a dictionary
+            journey_data = journey.to_dict()
+            # if its valid then add it 
+            if journey_data.get("include_in_reliability_analysis") == True:
+                valid_journeys.append(journey.reference)
+
+    results_of_journeys = []
+    # loop through all of the eligible journeys
+    for journey_reference in valid_journeys:
+        # get the info about the journey
+        journey_data = journey_reference.get().to_dict()
+        train_code = journey_data.get("train_code")
+        service_date = journey_data.get("service_date")
+        station_results = journey_data.get("analysis_results")
+ 
+        # only include journeys that have been analysed 
+        if station_results is None:
+            continue
+    
+        # store the results of each journey
+        results_of_journeys.append({
+            "train_code": train_code,
+            "service_date": service_date,
+            "station_results": station_results
+        })
+
+    # store all of the detected station delays
+    all_delays = []
+    # count the number of arrivals within 1 minutes of the timetable
+    on_time_arrivals = 0
+    # loop through all of the analysed journeys
+    for journey in results_of_journeys:
+        # loop through the stations in each journey
+        for station in journey["station_results"]:
+            delay = station["delay_minutes"]
+            # only use stations where a delay was calculated because some of the stations dont detect stops sometimes
+            if delay is not None:
+                all_delays.append(delay)
+                # if the delay is within a minute of on time consider it ontime 
+                if abs(delay) <= 1:
+                    on_time_arrivals += 1
+
+    # get the total number of detected arrivals
+    total_arrivals = len(all_delays)
+    # calculate the overall reliability statistics
+    average_delay = None
+    maximum_delay = None
+    on_time_percentage = None
+    if total_arrivals > 0:
+        average_delay = round(sum(all_delays) / total_arrivals, 2)
+        maximum_delay = max(all_delays)
+        on_time_percentage = round((on_time_arrivals / total_arrivals) * 100, 2)
+
+    # get the delays for specific stations
+    delays_by_station = {}
+    for journey in results_of_journeys:
+        for station in journey["station_results"]:
+            station_name = station["station_name"]
+            delay = station["delay_minutes"]
+            # only use stations where a delay was calculated because some of the stations dont detect stops sometimes
+            if delay is not None:
+                # make a list for the station if there isnt one already there 
+                if station_name not in delays_by_station:
+                    delays_by_station[station_name] = []
+                # add the delay to the station list 
+                delays_by_station[station_name].append(delay)
+    
+    station_recommendations = []
+    # loop through the stations and take the name and the list of delays
+    for station_name, delays in delays_by_station.items():
+        # sort the delays from the smallest to the largest one
+        sorted_delays = sorted(delays)
+        # find the position of the 95th percentile of delay
+        percentile_position = math.ceil(0.95 * len(sorted_delays)) - 1
+        # extra time that passenger should allow for 
+        recommended_extra_time = max(0, math.ceil(sorted_delays[percentile_position]))
+
+        # store the statistics for the station and the recommended extra time you need to be ontime 95% of the time 
+        station_recommendations.append({
+            "station_name": station_name,
+            "number_of_arrivals": len(delays),
+            "average_delay": round(sum(delays) / len(delays), 2),
+            "recommended_extra_time_95_percent": recommended_extra_time
+        })
+
+    # get the delays inbetween stations in other words has a delay improved or worsened between these stations
+    delays_inbetween_stations = {}
+    for journey in results_of_journeys:
+        stations = journey["station_results"]
+        # loop through the stations starting at the second one so that we can compare between them
+        for i in range(1, len(stations)):
+            previous_station = stations[i - 1]
+            current_station = stations[i]
+            previous_delay = previous_station["delay_minutes"]
+            current_delay = current_station["delay_minutes"]
+            # compare stations only if they both have a delay to compare 
+            if (previous_delay is not None) and (current_delay is not None):
+                # identify the section of the route using the two station names 
+                section_of_the_route = previous_station["station_name"] + " to " + current_station["station_name"]
+                # find how much delay was added between the stations 
+                added_delay = current_delay - previous_delay
+                # make a list for this section of the route if there isnt already one 
+                if section_of_the_route not in delays_inbetween_stations:
+                    delays_inbetween_stations[section_of_the_route] = []
+                # add the added delay to the section of the route 
+                delays_inbetween_stations[section_of_the_route].append(added_delay)
+
+    # find the bottlenecks between stations 
+    bottleneck_results = []
+    # loop through the delays between the stations and take out the station section and the list of delays
+    for station_section, delays in delays_inbetween_stations.items():
+        # calculate the average added delay for this section of the route
+        average_added_delay = round(sum(delays) / len(delays), 2)
+        # store the results for the section
+        bottleneck_results.append({
+            "station_section": station_section,
+            "number_of_observations": len(delays),
+            "average_additional_delay": average_added_delay
+        })
+
+    # sort the sections going from the sections that cause the most delay down to the least amount of delay 
+    bottleneck_results.sort(key=lambda section: section["average_additional_delay"], reverse=True)
+
+    return {
+        "journeys_found": len(valid_journeys),
+        "total_arrivals": total_arrivals,
+        "average_delay": average_delay,
+        "maximum_delay": maximum_delay,
+        "on_time_percentage": on_time_percentage,
+        "station_recommendations": station_recommendations,
+        "bottleneck_results": bottleneck_results
+    }
+
+

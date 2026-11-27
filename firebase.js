@@ -333,7 +333,7 @@ function display_delay_chart(results) {
         data: {
             labels: station_names,
             datasets: [{
-                label: "Delay in minutes",
+                label: "Minutes ahead of schedule",
                 data: station_delays,
                 pointBackgroundColor: point_colours,
                 borderColor: get_graph_line_colour
@@ -341,6 +341,22 @@ function display_delay_chart(results) {
         },
         options: {
             maintainAspectRatio: false,
+            // add a legend explaining the colours and the dotted line 
+            plugins: {
+                legend: {
+                    labels: {
+                        generateLabels: function() {
+                            return [
+                                {text: "Early", fillStyle: "green", strokeStyle: "green"},
+                                {text: "Late", fillStyle: "red", strokeStyle: "red"},
+                                {text: "On time", fillStyle: "transparent", strokeStyle: "black", lineDash: [10, 5], lineWidth: 1}
+                            ];
+                        }
+                    },
+                    // prevent the user from clicking to hide the graph
+                    onClick: function() {}
+                }
+            },
             scales: {
                 x: {
                     title: {
@@ -354,11 +370,30 @@ function display_delay_chart(results) {
                     title: {
                         display: true,
                         text: "Minutes ahead of schedule"
+                    },
+                // make the zero line black
+                grid: {
+                    color: function(context) {
+                        if (context.tick.value === 0) {
+                            return "black";
+                        }
+                        return "#eeeeee";
+                    }
+                },
+            
+                // draw 10 pixels than stop for 5 pixels on the line to make it dotted 
+                border: {
+                    dash: function(context) {
+                        if (context.tick && context.tick.value === 0) {
+                            return [10, 5];
+                        }
+                        return [];
                     }
                 }
             }
         }
-    });
+    }
+});
 }
 
 // make the good results green and the bad red 

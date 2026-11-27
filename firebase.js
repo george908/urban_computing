@@ -345,11 +345,13 @@ function display_delay_chart(results) {
             plugins: {
                 legend: {
                     labels: {
+                        usePointStyle: true,
+                        pointStyleWidth: 40,
                         generateLabels: function() {
                             return [
-                                {text: "Early", fillStyle: "green", strokeStyle: "green"},
-                                {text: "Late", fillStyle: "red", strokeStyle: "red"},
-                                {text: "On time", fillStyle: "transparent", strokeStyle: "black", lineDash: [10, 5], lineWidth: 1}
+                                {text: "Early", fillStyle: "green", strokeStyle: "green", pointStyle: "rect"},
+                                {text: "Late", fillStyle: "red", strokeStyle: "red", pointStyle: "rect"},
+                                {text: "On time", strokeStyle: "black", pointStyle: "line", lineDash: [10, 5], lineWidth: 1}
                             ];
                         }
                     },
